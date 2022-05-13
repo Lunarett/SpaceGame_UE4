@@ -125,7 +125,9 @@ void ASpaceGameCharacter::MoveForward(float Value)
 	{
 		AddMovementInput(GetActorForwardVector() * Value);
 
-		FRotator rotation = GetActorForwardVector().Rotation() * Value;
+		FVector Direction = GetActorForwardVector() * 180.0f * Value;
+
+		FRotator rotation = Direction.Rotation();
 		ShipMeshComponent->SetRelativeRotation(rotation);
 	}
 }
