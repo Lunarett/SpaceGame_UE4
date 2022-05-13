@@ -127,8 +127,8 @@ void ASpaceGameCharacter::MoveForward(float Value)
 
 		FVector Direction = GetActorForwardVector() * 180.0f * Value;
 
-		FRotator rotation = Direction.Rotation();
-		ShipMeshComponent->SetRelativeRotation(rotation);
+		ShipRotation = Direction.Rotation();
+		SetShipRotation(ShipRotation);
 	}
 }
 
@@ -138,9 +138,20 @@ void ASpaceGameCharacter::MoveRight(float Value)
 	{
 		AddMovementInput(GetActorRightVector() * Value);
 
-		FRotator rotation = GetActorRightVector().Rotation() * Value;
-		ShipMeshComponent->SetRelativeRotation(rotation);
+		ShipRotation = GetActorRightVector().Rotation() * Value;
+		SetShipRotation(ShipRotation);
 	}
+}
+
+void ASpaceGameCharacter::SetShipRotation(FRotator rotation)
+{
+	if (!HasAuthority())
+	{ 
+		ServerSetShipRotation(rotation);
+		return;
+	}
+
+	ShipMeshComponent->SetRelativeRotation(rotation);
 }
 
 void ASpaceGameCharacter::FireForward(float Value)
@@ -235,6 +246,16 @@ void ASpaceGameCharacter::OnDied(int TeamNum)
 	}
 }
 
+void ASpaceGameCharacter::ServerSetShipRotation_Implementation(FRotator rotation)
+{
+	SetShipRotation(rotation);
+}
+
+bool ASpaceGameCharacter::ServerSetShipRotation_Validate(FRotator rotation)
+{
+	return true;
+}
+
 void ASpaceGameCharacter::ServerFireForward_Implementation(float Value)
 {
 	FireForward(Value);
@@ -313,6 +334,7 @@ void ASpaceGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 
 	DOREPLIFETIME(ASpaceGameCharacter, FireForwardValue);
 	DOREPLIFETIME(ASpaceGameCharacter, FireRightValue);
+	DOREPLIFETIME(ASpaceGameCharacter, ShipRotation);
 	DOREPLIFETIME(ASpaceGameCharacter, SpawnPosition);
 	DOREPLIFETIME(ASpaceGameCharacter, TeamNumber);
 	DOREPLIFETIME(ASpaceGameCharacter, bCanMove);

@@ -35,6 +35,9 @@ public:
 	UPROPERTY(ReplicatedUsing = OnRep_SetTeamMaterials)
 		int TeamNumber;
 
+	UPROPERTY(Replicated)
+		FRotator ShipRotation;
+
 	UFUNCTION()
 		void OnRep_SetTeamMaterials();
 
@@ -52,7 +55,7 @@ protected:
 
 	UPROPERTY(Category = Components, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 		class UHealthComponent* HealthComponent;
-
+		
 	UPROPERTY(Replicated)
 		float FireForwardValue;
 
@@ -71,11 +74,15 @@ protected:
 
 	void MoveForward(float Value);
 	void MoveRight(float Value);
+	void SetShipRotation(FRotator rotation);
 	void FireForward(float Value);
 	void FireRight(float Value);
 	void Fire();
 	void FireTimerExpired();
 	void OnDied(int TeamNum);
+	
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetShipRotation(FRotator rotation);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerFireForward(float Value);

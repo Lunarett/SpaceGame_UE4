@@ -181,8 +181,6 @@ void ASpaceGameGameMode::SetTeams()
 
 void ASpaceGameGameMode::AddKill(int Team)
 {
-
-
 	if (Team == TeamOneNumber)
 	{
 		TeamOneScore++;
