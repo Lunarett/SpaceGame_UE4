@@ -10,6 +10,7 @@ class UStaticMesh;
 class UCameraComponent;
 class USpringArmComponent;
 class UHealthComponent;
+class ASpaceGameProjectile;
 
 UCLASS()
 class SPACEGAME_API ASpaceGameCharacter : public ACharacter
@@ -68,6 +69,20 @@ protected:
 	UPROPERTY(Replicated)
 		bool bCanMove;
 	
+	//Projectile Object Pool
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Object Pool")
+		int InitialProjectileSpawnCount;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Object Pool")
+		FVector ObjectPoolLocation;
+
+	UPROPERTY(Replicated)
+		TArray<ASpaceGameProjectile*> Projectiles;
+
+	int NextProjectile = 0;
+	
+
+
 	bool bDead;
 
 	virtual void BeginPlay() override;
@@ -80,6 +95,7 @@ protected:
 	void Fire();
 	void FireTimerExpired();
 	void OnDied(int TeamNum);
+	void SpawnProjectiles();
 	
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetShipRotation(FRotator rotation);
@@ -96,12 +112,17 @@ protected:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerRespawn();
 
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSpawnProjectiles();
+
+
 	UFUNCTION()
 		void OnHealthChanged(UHealthComponent* HealthComp, float Health, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
 
 private:
 	FTimerHandle TimerHandle_ShotTimerExpired;
 	uint32 bCanFire : 1;
+
 
 	void PrintString(FString Msg);
 

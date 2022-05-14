@@ -25,17 +25,23 @@ ASpaceGameProjectile::ASpaceGameProjectile()
 	// Use a ProjectileMovementComponent to govern this projectile's movement
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement0"));
 	ProjectileMovement->UpdatedComponent = ProjectileMesh;
-	ProjectileMovement->InitialSpeed = 3000.f;
-	ProjectileMovement->MaxSpeed = 3000.f;
+	ProjectileMovement->InitialSpeed = 3000.0f;
+	ProjectileMovement->MaxSpeed = 3000.0f;
 	ProjectileMovement->bRotationFollowsVelocity = true;
 	ProjectileMovement->bShouldBounce = false;
 	ProjectileMovement->ProjectileGravityScale = 0.f; // No gravity
 
-	// Die after 3 seconds by default
-	InitialLifeSpan = 3.0f;
 	Damage = 10;
 
 	SetReplicates(true);
+}
+
+void ASpaceGameProjectile::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	InitialLocation = GetActorLocation();
+	ProjectileMovement->SetUpdatedComponent(nullptr);
 }
 
 void ASpaceGameProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
@@ -64,7 +70,51 @@ void ASpaceGameProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActo
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, "Other null");
 		}
 	}
+	
+	RemoveProjectile();
+}
 
+void ASpaceGameProjectile::SpawnInProjectile(FVector Location, FVector Direction)
+{
+	if (!HasAuthority())
+	{
+		ServerSpawnInProjectile(Location, Direction);
+		return;
+	}
 
-	Destroy();
+	ProjectileMovement->SetUpdatedComponent(GetRootComponent());
+	SetActorLocation(Location);
+	ProjectileMovement->Velocity = Direction * ProjectileMovement->InitialSpeed;
+}
+
+void ASpaceGameProjectile::RemoveProjectile()
+{
+	if (!HasAuthority())
+	{
+		ServerRemoveProjectile();
+		return;
+	}
+
+	SetActorLocation(InitialLocation);
+	ProjectileMovement->SetUpdatedComponent(nullptr);
+}
+
+void ASpaceGameProjectile::ServerSpawnInProjectile_Implementation(FVector Location, FVector Direction)
+{
+	SpawnInProjectile(Location, Direction);
+}
+
+bool ASpaceGameProjectile::ServerSpawnInProjectile_Validate(FVector Location, FVector Direction)
+{
+	return true;
+}
+
+void ASpaceGameProjectile::ServerRemoveProjectile_Implementation()
+{
+	RemoveProjectile();
+}
+
+bool ASpaceGameProjectile::ServerRemoveProjectile_Validate()
+{
+	return true;
 }

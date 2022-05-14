@@ -55,6 +55,8 @@ ASpaceGameCharacter::ASpaceGameCharacter()
 	bCanFire = true;
 	bCanMove = true;
 
+	InitialProjectileSpawnCount = 20;
+
 	SetReplicates(true);
 	ShipMeshComponent->SetIsReplicated(true);
 }
@@ -81,6 +83,7 @@ void ASpaceGameCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	ASpaceGameGameMode* GM = GetWorld()->GetAuthGameMode<ASpaceGameGameMode>();
+	SpawnProjectiles();
 
 	if (HasAuthority())
 	{
@@ -89,6 +92,7 @@ void ASpaceGameCharacter::BeginPlay()
 		HealthComponent->OnHealthChanged.AddDynamic(this, &ASpaceGameCharacter::OnHealthChanged);
 		OnDeath.AddDynamic(this, &ASpaceGameCharacter::OnDied);
 	}
+
 }
 
 void ASpaceGameCharacter::AllowControl(bool bAllow)
@@ -179,7 +183,6 @@ void ASpaceGameCharacter::Fire()
 	if (!HasAuthority())
 	{
 		ServerFire();
-		return;
 	}
 
 	const FVector FireDirection = FVector(FireForwardValue, FireRightValue, 0.f);
@@ -193,15 +196,22 @@ void ASpaceGameCharacter::Fire()
 
 			UWorld* const World = GetWorld();
 
-			if (World != nullptr)
+			if (World != nullptr && Projectiles.Num() > 0)
 			{
 				// Spawn the projectile
-				ASpaceGameProjectile* projectile = World->SpawnActor<ASpaceGameProjectile>(SpawnLocation, FireRotation);
-
-				if (projectile)
+				if (NextProjectile == InitialProjectileSpawnCount)
 				{
-					projectile->SetOwner(this);
+					NextProjectile = 0;
 				}
+
+				Projectiles[NextProjectile]->SetActorScale3D(FVector(2, 1, 1));
+				Projectiles[NextProjectile]->SpawnInProjectile(SpawnLocation, FireDirection);
+
+				NextProjectile++;
+			}
+			else
+			{
+				PrintString("NULL");
 			}
 
 			bCanFire = false;
@@ -246,6 +256,31 @@ void ASpaceGameCharacter::OnDied(int TeamNum)
 	}
 }
 
+void ASpaceGameCharacter::SpawnProjectiles()
+{
+	if (!HasAuthority())
+	{
+		ServerSpawnProjectiles();
+		return;
+	}
+
+	FRotator rot = FRotator::ZeroRotator;
+
+	for (int i = 0; i < InitialProjectileSpawnCount; i++)
+	{
+		ObjectPoolLocation = FVector((i * 100), 0, 0);
+		
+		ASpaceGameProjectile* projectile = GetWorld()->SpawnActor<ASpaceGameProjectile>(ObjectPoolLocation, rot);
+
+		if (projectile)
+		{
+			projectile->SetOwner(this);
+			Projectiles.Add(projectile);
+		}
+	}
+}
+
+#pragma region Server
 void ASpaceGameCharacter::ServerSetShipRotation_Implementation(FRotator rotation)
 {
 	SetShipRotation(rotation);
@@ -296,13 +331,25 @@ bool ASpaceGameCharacter::ServerRespawn_Validate()
 	return true;
 }
 
+void ASpaceGameCharacter::ServerSpawnProjectiles_Implementation()
+{
+	SpawnProjectiles();
+}
+
+bool ASpaceGameCharacter::ServerSpawnProjectiles_Validate()
+{
+	return true;
+}
+
+#pragma endregion
+
 void ASpaceGameCharacter::OnHealthChanged(UHealthComponent* HealthComp, float Health, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser)
 {
 	if (Health <= 0.0f)
 	{
-		
+
 		ASpaceGameCharacter* Causer = Cast<ASpaceGameCharacter>(InstigatedBy->GetCharacter());
-		
+
 		if (Causer)
 		{
 			OnDied(Causer->HealthComponent->GetTeamNumber());
@@ -339,5 +386,6 @@ void ASpaceGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(ASpaceGameCharacter, TeamNumber);
 	DOREPLIFETIME(ASpaceGameCharacter, bCanMove);
 	DOREPLIFETIME(ASpaceGameCharacter, FireSound);
+	DOREPLIFETIME(ASpaceGameCharacter, Projectiles);
 }
 
