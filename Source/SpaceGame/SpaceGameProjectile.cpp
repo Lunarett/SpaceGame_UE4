@@ -74,47 +74,8 @@ void ASpaceGameProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActo
 	RemoveProjectile();
 }
 
-void ASpaceGameProjectile::SpawnInProjectile(FVector Location, FVector Direction)
-{
-	if (!HasAuthority())
-	{
-		ServerSpawnInProjectile(Location, Direction);
-		return;
-	}
-
-	ProjectileMovement->SetUpdatedComponent(GetRootComponent());
-	SetActorLocation(Location);
-	ProjectileMovement->Velocity = Direction * ProjectileMovement->InitialSpeed;
-}
-
 void ASpaceGameProjectile::RemoveProjectile()
 {
-	if (!HasAuthority())
-	{
-		ServerRemoveProjectile();
-		return;
-	}
-
 	SetActorLocation(InitialLocation);
 	ProjectileMovement->SetUpdatedComponent(nullptr);
-}
-
-void ASpaceGameProjectile::ServerSpawnInProjectile_Implementation(FVector Location, FVector Direction)
-{
-	SpawnInProjectile(Location, Direction);
-}
-
-bool ASpaceGameProjectile::ServerSpawnInProjectile_Validate(FVector Location, FVector Direction)
-{
-	return true;
-}
-
-void ASpaceGameProjectile::ServerRemoveProjectile_Implementation()
-{
-	RemoveProjectile();
-}
-
-bool ASpaceGameProjectile::ServerRemoveProjectile_Validate()
-{
-	return true;
 }

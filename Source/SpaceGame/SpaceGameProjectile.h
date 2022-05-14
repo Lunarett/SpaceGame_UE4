@@ -38,18 +38,9 @@ public:
 	UFUNCTION()
 		void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
-	void SpawnInProjectile(FVector Location, FVector Direction);
 	void RemoveProjectile();
 
 	FORCEINLINE UStaticMeshComponent* GetProjectileMesh() const { return ProjectileMesh; }
 	FORCEINLINE UProjectileMovementComponent* GetProjectileMovement() const { return ProjectileMovement; }
-
-private:
-
-	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerSpawnInProjectile(FVector Location, FVector Direction);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerRemoveProjectile();
 };
 

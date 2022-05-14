@@ -15,6 +15,7 @@
 #include "Sound/SoundBase.h"
 #include "HealthComponent.h"
 #include "SpaceGameGameMode.h"
+#include "GameFramework/ProjectileMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 
 
@@ -204,8 +205,11 @@ void ASpaceGameCharacter::Fire()
 					NextProjectile = 0;
 				}
 
+				Projectiles[NextProjectile]->GetProjectileMovement()->SetUpdatedComponent(Projectiles[NextProjectile]->GetRootComponent());
+				
+				Projectiles[NextProjectile]->SetActorLocation(SpawnLocation);
 				Projectiles[NextProjectile]->SetActorScale3D(FVector(2, 1, 1));
-				Projectiles[NextProjectile]->SpawnInProjectile(SpawnLocation, FireDirection);
+				Projectiles[NextProjectile]->GetProjectileMovement()->Velocity = FireDirection * Projectiles[NextProjectile]->GetProjectileMovement()->InitialSpeed;
 
 				NextProjectile++;
 			}
