@@ -83,15 +83,14 @@ void ASpaceGameCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	ASpaceGameGameMode* GM = GetWorld()->GetAuthGameMode<ASpaceGameGameMode>();
+	//ASpaceGameGameMode* GM = GetWorld()->GetAuthGameMode<ASpaceGameGameMode>();
 	SpawnProjectiles();
 
 	if (HasAuthority())
 	{
-		GM->SetTeams();
+		//GM->SetTeams();
 		SpawnPosition = GetActorLocation();
 		HealthComponent->OnHealthChanged.AddDynamic(this, &ASpaceGameCharacter::OnHealthChanged);
-		OnDeath.AddDynamic(this, &ASpaceGameCharacter::OnDied);
 	}
 
 }
@@ -151,7 +150,7 @@ void ASpaceGameCharacter::MoveRight(float Value)
 void ASpaceGameCharacter::SetShipRotation(FRotator rotation)
 {
 	if (!HasAuthority())
-	{ 
+	{
 		ServerSetShipRotation(rotation);
 		return;
 	}
@@ -177,6 +176,56 @@ void ASpaceGameCharacter::FireRight(float Value)
 	}
 
 	FireRightValue = Value;
+}
+
+void ASpaceGameCharacter::AIFire(FVector Direction)
+{
+	if (!HasAuthority())
+	{
+		ServerAIFire(Direction);
+	}
+
+	if (bCanFire && bCanMove)
+	{
+		if (Direction.SizeSquared() > 0.0f)
+		{
+			const FRotator FireRotation = Direction.Rotation();
+			const FVector SpawnLocation = GetActorLocation() + FireRotation.RotateVector(GunOffset);
+
+			UWorld* const World = GetWorld();
+
+			if (World != nullptr && Projectiles.Num() > 0)
+			{
+				// Spawn the projectile
+				if (NextProjectile == InitialProjectileSpawnCount)
+				{
+					NextProjectile = 0;
+				}
+
+				Projectiles[NextProjectile]->GetProjectileMovement()->SetUpdatedComponent(Projectiles[NextProjectile]->GetRootComponent());
+
+				Projectiles[NextProjectile]->SetActorLocation(SpawnLocation);
+				Projectiles[NextProjectile]->SetActorScale3D(FVector(2, 1, 1));
+				Projectiles[NextProjectile]->GetProjectileMovement()->Velocity = Direction * Projectiles[NextProjectile]->GetProjectileMovement()->InitialSpeed;
+
+				NextProjectile++;
+			}
+			else
+			{
+				PrintString("NULL");
+			}
+
+			bCanFire = false;
+			World->GetTimerManager().SetTimer(TimerHandle_ShotTimerExpired, this, &ASpaceGameCharacter::FireTimerExpired, FireRate);
+
+			if (FireSound != nullptr)
+			{
+				UGameplayStatics::PlaySoundAtLocation(this, FireSound, GetActorLocation());
+			}
+
+			bCanFire = false;
+		}
+	}
 }
 
 void ASpaceGameCharacter::Fire()
@@ -206,7 +255,7 @@ void ASpaceGameCharacter::Fire()
 				}
 
 				Projectiles[NextProjectile]->GetProjectileMovement()->SetUpdatedComponent(Projectiles[NextProjectile]->GetRootComponent());
-				
+
 				Projectiles[NextProjectile]->SetActorLocation(SpawnLocation);
 				Projectiles[NextProjectile]->SetActorScale3D(FVector(2, 1, 1));
 				Projectiles[NextProjectile]->GetProjectileMovement()->Velocity = FireDirection * Projectiles[NextProjectile]->GetProjectileMovement()->InitialSpeed;
@@ -250,13 +299,13 @@ void ASpaceGameCharacter::Respawn()
 
 void ASpaceGameCharacter::OnDied(int TeamNum)
 {
-	OnDeath.Broadcast(TeamNum);
+
 
 	ASpaceGameGameMode* GM = GetWorld()->GetAuthGameMode<ASpaceGameGameMode>();
 
 	if (GM)
 	{
-		GM->AddKill(TeamNum);
+		GM->AddTeamPoints(TeamNum);
 	}
 }
 
@@ -273,7 +322,7 @@ void ASpaceGameCharacter::SpawnProjectiles()
 	for (int i = 0; i < InitialProjectileSpawnCount; i++)
 	{
 		ObjectPoolLocation = FVector((i * 100), 0, 0);
-		
+
 		ASpaceGameProjectile* projectile = GetWorld()->SpawnActor<ASpaceGameProjectile>(ObjectPoolLocation, rot);
 
 		if (projectile)
@@ -291,6 +340,16 @@ void ASpaceGameCharacter::ServerSetShipRotation_Implementation(FRotator rotation
 }
 
 bool ASpaceGameCharacter::ServerSetShipRotation_Validate(FRotator rotation)
+{
+	return true;
+}
+
+void ASpaceGameCharacter::ServerAIFire_Implementation(FVector Direction)
+{
+	AIFire(Direction);
+}
+
+bool ASpaceGameCharacter::ServerAIFire_Validate(FVector Direction)
 {
 	return true;
 }
@@ -351,15 +410,7 @@ void ASpaceGameCharacter::OnHealthChanged(UHealthComponent* HealthComp, float He
 {
 	if (Health <= 0.0f)
 	{
-
-		ASpaceGameCharacter* Causer = Cast<ASpaceGameCharacter>(InstigatedBy->GetCharacter());
-
-		if (Causer)
-		{
-			OnDied(Causer->HealthComponent->GetTeamNumber());
-		}
-
-		Respawn();
+		OnDeath.Broadcast(this, InstigatedBy, DamageCauser);
 	}
 }
 

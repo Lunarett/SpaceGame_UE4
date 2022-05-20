@@ -1,11 +1,12 @@
 #include "SpaceGameGameMode.h"
 #include "SpaceGameCharacter.h"
+#include "SpaceGamePlayerState.h"
+#include "SpaceGamePlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "HealthComponent.h"
 #include "GameFramework/PlayerStart.h"
 #include "TimerManager.h"
-#include "Net/UnrealNetwork.h"
 
 ASpaceGameGameMode::ASpaceGameGameMode()
 {
@@ -13,23 +14,49 @@ ASpaceGameGameMode::ASpaceGameGameMode()
 	PrimaryActorTick.bCanEverTick = true;
 
 	DefaultPawnClass = ASpaceGameCharacter::StaticClass();
+	PlayerControllerClass = ASpaceGamePlayerController::StaticClass();
+	PlayerStateClass = ASpaceGamePlayerState::StaticClass();
+}
 
-	SetReplicates(true);
+void ASpaceGameGameMode::PostLogin(APlayerController* NewPlayer)
+{
+	Super::PostLogin(NewPlayer);
 
-	OnTeamOneWin.AddDynamic(this, &ASpaceGameGameMode::CalculateScore);
-	OnTeamTwoWin.AddDynamic(this, &ASpaceGameGameMode::CalculateScore);
-	OnDraw.AddDynamic(this, &ASpaceGameGameMode::CalculateScore);
-	OnScoreChanged.AddDynamic(this, &ASpaceGameGameMode::UpdateScore);
-	OnSecond.AddDynamic(this, &ASpaceGameGameMode::CountDown);
+	ASpaceGamePlayerController* PlayerController = Cast<ASpaceGamePlayerController>(NewPlayer);
+	ASpaceGameCharacter* Character = nullptr;
 
-	bCanCountDown = true;
+	GEngine->AddOnScreenDebugMessage(-1, 50.f, FColor::Yellow, "Player Logged In");
+	
+	if (PlayerController)
+	{
+		PlayerController->OnPossessWithAuth.AddDynamic(this, &ASpaceGameGameMode::PossessWithAuth);
 
-	TeamOneNumber = 0;
-	TeamTwoNumber = 1;
+		Character = Cast<ASpaceGameCharacter>(PlayerController->GetPawn());
 
-	Minutes = 1;
-	Seconds = 30;
-	MatchEndDelay = 5.0f;
+		if (Character)
+		{
+			Character->OnDeath.AddDynamic(this, &ASpaceGameGameMode::OnPlayerDeath);
+		}
+
+		CurrentPlayerCount++;
+
+		// Run when all players have joined
+		if (CurrentPlayerCount >= 4)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 50.f, FColor::Green, "Running Set Teams");
+			SetTeams();
+			bCanCountDown = true;
+		}
+	}
+	else
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 50.f, FColor::Red, "Player Controller is Null");
+	}
+}
+
+void ASpaceGameGameMode::BeginPlay()
+{
+	Super::BeginPlay();
 
 	CurrentMinutes = Minutes;
 	CurrentSeconds = Seconds;
@@ -64,12 +91,12 @@ void ASpaceGameGameMode::CalculateScore()
 	{
 		OnTeamOneWin.Broadcast();
 	}
-	
+
 	if (TeamTwoScore > TeamOneScore)
 	{
 		OnTeamTwoWin.Broadcast();
 	}
-	
+
 	if (TeamTwoScore == TeamOneScore)
 	{
 		OnDraw.Broadcast();
@@ -125,7 +152,7 @@ void ASpaceGameGameMode::ResetTimer()
 	for (int i = 0; i < Characters.Num(); i++)
 	{
 		Character = Cast<ASpaceGameCharacter>(Characters[i]);
-		
+
 		if (Character)
 		{
 			Character->Respawn();
@@ -142,44 +169,119 @@ void ASpaceGameGameMode::ResetTimer()
 	bCanCountDown = true;
 }
 
-void ASpaceGameGameMode::SetTeams()
+void ASpaceGameGameMode::OnPlayerDeath(ASpaceGameCharacter* Character, AController* InstigatedBy, AActor* DamageCauser)
 {
-	if (!HasAuthority())
+	ASpaceGamePlayerController* PlayerController = Cast<ASpaceGamePlayerController>(Character->Controller);
+
+	ASpaceGamePlayerState* CharacterPlayerState = Cast<ASpaceGamePlayerState>(Character->GetPlayerState());
+	ASpaceGamePlayerState* KillerPlayerState = nullptr;
+
+	if (InstigatedBy)
 	{
-		ServerSetTeams();
-		return;
+		KillerPlayerState = Cast<ASpaceGamePlayerState>(InstigatedBy->PlayerState);
 	}
 
+	// Respawn Killed player
+	if (PlayerController && CharacterPlayerState)
+	{
+		Character->Respawn();
+		//RespawnPlayer(PlayerController, CharacterPlayerState->GetTeamNumber());
+		CharacterPlayerState->AddDeath();
+	}
+
+	//Give point to Killers team
+	if (KillerPlayerState)
+	{
+		KillerPlayerState->AddKill();
+		AddTeamPoints(KillerPlayerState->GetTeamNumber());
+	}
+}
+
+void ASpaceGameGameMode::RespawnPlayer(ASpaceGamePlayerController* PlayerController, int TeamNum)
+{
+	UWorld* World = GetWorld();
+	APlayerStart* PlayerStart = nullptr;
+	TArray<AActor*> PlayerStarts;
+
+	UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), PlayerStarts);
+
+	if (PlayerStarts.Num() > 0)
+	{
+		PlayerStart = Cast<APlayerStart>(PlayerStarts[FMath::RandRange(0, PlayerStarts.Num())]);
+
+		UClass* PawnClass = GetDefaultPawnClassForController(PlayerController);
+
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		APawn* SpawnedPlayer = GetWorld()->SpawnActor<APawn>(PawnClass, PlayerStart->GetActorLocation(), PlayerStart->GetActorRotation(), SpawnParams);
+		PlayerController->Possess(SpawnedPlayer);
+
+		ASpaceGameCharacter* Character = Cast<ASpaceGameCharacter>(SpawnedPlayer);
+
+		if (Character)
+		{
+			Character->SetTeamMaterials(TeamNum);
+		}
+
+		GEngine->AddOnScreenDebugMessage(-1, 50.f, FColor::Green, "Respawned Player");
+	}
+}
+
+void ASpaceGameGameMode::PossessWithAuth(ASpaceGamePlayerController* PlayerController, APawn* TargetPawn)
+{
+	ASpaceGameCharacter* Character = Cast<ASpaceGameCharacter>(TargetPawn);
+	GEngine->AddOnScreenDebugMessage(-1, 50.f, FColor::Yellow, "Possesed");
+
+	if (Character)
+	{
+		Character->OnDeath.AddDynamic(this, &ASpaceGameGameMode::OnPlayerDeath);
+	}
+}
+
+void ASpaceGameGameMode::SetTeams()
+{
 	UWorld* World = GetWorld();
 	TArray<AActor*> Characters;
+	ASpaceGameCharacter* Character = nullptr;
+	ASpaceGamePlayerState* PlayerState = nullptr;
 
 	UGameplayStatics::GetAllActorsOfClass(this, ASpaceGameCharacter::StaticClass(), Characters);
 
-	ASpaceGameCharacter* Character = nullptr;
 
 	for (int i = 0; i < Characters.Num(); i++)
 	{
 		Character = Cast<ASpaceGameCharacter>(Characters[i]);
+		
 		// Assign team number to every character
 		if (Character)
 		{
+			if (Character->IsAI)
+			{
+				continue;
+			}
+
 			if (i % 2 == 0)
 			{
 				Character->GetHealthComponent()->SetTeam(TeamTwoNumber);
 				Character->TeamNumber = TeamTwoNumber;
 				Character->SetTeamMaterials(TeamTwoNumber);
+
+				if (PlayerState) { PlayerState->SetTeam(TeamTwoNumber); }
 			}
 			else
 			{
 				Character->GetHealthComponent()->SetTeam(TeamOneNumber);
 				Character->TeamNumber = TeamOneNumber;
 				Character->SetTeamMaterials(TeamOneNumber);
+
+				if (PlayerState) { PlayerState->SetTeam(TeamOneNumber); }
 			}
 		}
 	}
 }
 
-void ASpaceGameGameMode::AddKill(int Team)
+void ASpaceGameGameMode::AddTeamPoints(int Team)
 {
 	if (Team == TeamOneNumber)
 	{
@@ -191,32 +293,4 @@ void ASpaceGameGameMode::AddKill(int Team)
 	}
 
 	OnScoreChanged.Broadcast();
-}
-
-int ASpaceGameGameMode::GetTeamOneNumber()
-{
-	return TeamOneNumber;
-}
-
-int ASpaceGameGameMode::GetTeamTwoNumber()
-{
-	return TeamTwoNumber;
-}
-
-void ASpaceGameGameMode::ServerSetTeams_Implementation()
-{
-	SetTeams();
-}
-
-bool ASpaceGameGameMode::ServerSetTeams_Validate()
-{
-	return true;
-}
-
-void ASpaceGameGameMode::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(ASpaceGameGameMode, TeamOneNumber);
-	DOREPLIFETIME(ASpaceGameGameMode, TeamTwoNumber);
 }

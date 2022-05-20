@@ -10,27 +10,35 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDrawSignature);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnSecondSignature);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnScoreChangedSignature);
 
+class ASpaceGameCharacter;
+class ASpaceGamePlayerController;
+
 UCLASS(MinimalAPI)
 class ASpaceGameGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
 
 public:
+
 	ASpaceGameGameMode();
 
 protected:
-	UPROPERTY(Replicated, EditDefaultsOnly, Category = "Teams")
-		int TeamOneNumber;
 
-	UPROPERTY(Replicated, EditDefaultsOnly, Category = "Teams")
-		int TeamTwoNumber;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Teams")
+		int TeamOneNumber = 0;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Timer")
-		int Seconds;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Teams")
+		int TeamTwoNumber = 1;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Timer")
-		int Minutes;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Timer")
+		int Seconds = 30;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Timer")
+		int Minutes = 1;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Timer")
+		float MatchEndDelay = 5.0f;
+	
 	UPROPERTY(BlueprintReadOnly)
 		int CurrentSeconds;
 
@@ -43,29 +51,32 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 		int TeamTwoScore;
 
-	UPROPERTY(BlueprintReadOnly)
-		float MatchEndDelay;
+	int CurrentPlayerCount = 0;
+	bool bCanCountDown = false;
 
-	bool bCanCountDown;
-
+	virtual void BeginPlay() override;
 	void CalculateScore();
 	void UpdateScore();
 	void CountDown();
 	void CountDownTimerExpired();
 	void ResetTimer();
+	void RespawnPlayer(ASpaceGamePlayerController* PlayerController, int TeamNum);
 
+	UFUNCTION()
+		void PossessWithAuth(ASpaceGamePlayerController* PlayerController, APawn* TargetPawn);
+
+	UFUNCTION()
+		void OnPlayerDeath(ASpaceGameCharacter* Character, AController* InstigatedBy, AActor* DamageCauser);
+	
 	FTimerHandle TimerHandle_TimeDelay;
 
 public:
+
 	virtual void Tick(float DeltaTime) override;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
 	void SetTeams();
-	void AddKill(int Team);
+	void AddTeamPoints(int Team);
 
-	int GetTeamOneNumber();
-	int GetTeamTwoNumber();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerSetTeams();
 
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 		FOnTeamOneWinSignature OnTeamOneWin;

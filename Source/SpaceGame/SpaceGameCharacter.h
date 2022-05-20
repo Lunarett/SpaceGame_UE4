@@ -4,8 +4,9 @@
 #include "GameFramework/Character.h"
 #include "SpaceGameCharacter.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDeathSignature, int, TeamNum);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnDeathSignature, ASpaceGameCharacter*, KilledCharacter, AController*, InstigatedBy, AActor*, DamageCauser);
 
+class USoundBase;
 class UStaticMesh;
 class UCameraComponent;
 class USpringArmComponent;
@@ -30,10 +31,13 @@ public:
 		float MoveSpeed;
 
 	UPROPERTY(Replicated, Category = Audio, EditAnywhere, BlueprintReadWrite)
-		class USoundBase* FireSound;
+		USoundBase* FireSound;
 
 
-	UPROPERTY(ReplicatedUsing = OnRep_SetTeamMaterials)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI")
+		bool IsAI;
+
+	UPROPERTY(ReplicatedUsing = OnRep_SetTeamMaterials, BlueprintReadWrite)
 		int TeamNumber;
 
 	UPROPERTY(Replicated)
@@ -42,22 +46,24 @@ public:
 	UFUNCTION()
 		void OnRep_SetTeamMaterials();
 
-	void SetTeamMaterials(int TeamNum);
+	UFUNCTION(BlueprintCallable)
+		void SetTeamMaterials(int TeamNum);
+
 
 protected:
 	UPROPERTY(Category = Mesh, VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-		class UStaticMeshComponent* ShipMeshComponent;
+		UStaticMeshComponent* ShipMeshComponent;
 
 	UPROPERTY(Category = Camera, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-		class UCameraComponent* CameraComponent;
+		UCameraComponent* CameraComponent;
 
 	UPROPERTY(Category = Camera, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-		class USpringArmComponent* CameraBoom;
+		USpringArmComponent* CameraBoom;
 
 	UPROPERTY(Category = Components, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-		class UHealthComponent* HealthComponent;
-		
-	UPROPERTY(Replicated)
+		UHealthComponent* HealthComponent;
+
+	UPROPERTY(Replicated, BlueprintReadWrite)
 		float FireForwardValue;
 
 	UPROPERTY(Replicated)
@@ -68,11 +74,11 @@ protected:
 
 	UPROPERTY(Replicated)
 		bool bCanMove;
-	
+
 	//Projectile Object Pool
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Object Pool")
 		int InitialProjectileSpawnCount;
-	
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Object Pool")
 		FVector ObjectPoolLocation;
 
@@ -80,10 +86,6 @@ protected:
 		TArray<ASpaceGameProjectile*> Projectiles;
 
 	int NextProjectile = 0;
-	
-
-
-	bool bDead;
 
 	virtual void BeginPlay() override;
 
@@ -96,7 +98,8 @@ protected:
 	void FireTimerExpired();
 	void OnDied(int TeamNum);
 	void SpawnProjectiles();
-	
+	void ApplyTeamMaterials(int TeamNum);
+
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetShipRotation(FRotator rotation);
 
@@ -127,10 +130,10 @@ private:
 	void PrintString(FString Msg);
 
 public:
-	FORCEINLINE class UStaticMeshComponent* GetShipMeshComponent() const { return ShipMeshComponent; }
-	FORCEINLINE class UCameraComponent* GetCameraComponent() const { return CameraComponent; }
-	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
-	FORCEINLINE class UHealthComponent* GetHealthComponent() const { return HealthComponent; }
+	FORCEINLINE UStaticMeshComponent* GetShipMeshComponent() const { return ShipMeshComponent; }
+	FORCEINLINE UCameraComponent* GetCameraComponent() const { return CameraComponent; }
+	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+	FORCEINLINE UHealthComponent* GetHealthComponent() const { return HealthComponent; }
 
 	UPROPERTY(EditDefaultsOnly)
 		UMaterialInterface* TeamOneMaterial;
@@ -141,12 +144,19 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 		FOnDeathSignature OnDeath;
 
+	UPROPERTY(BlueprintReadOnly)
+		TArray<AActor*> AllPlayersArray;
+
 	void Respawn();
-	void ApplyTeamMaterials(int TeamNum);
 	void AllowControl(bool bAllow);
 
+	void AIFire(FVector Direction);
+
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerAllowControl(bool bAllow);
+		void ServerAIFire(FVector Direction);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerAllowControl(bool bAllow);
 
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
