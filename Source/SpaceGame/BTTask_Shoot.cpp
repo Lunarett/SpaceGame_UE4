@@ -9,7 +9,7 @@ EBTNodeResult::Type UBTTask_Shoot::ExecuteTask(UBehaviorTreeComponent& OwnerComp
 
 	if (GuardCharacter)
 	{
-		GuardCharacter->AIFire(GuardCharacter->GetShipMeshComponent()->GetForwardVector());
+		GuardCharacter->bAIStartFire = true;
 	}
 
 	return EBTNodeResult::Succeeded;

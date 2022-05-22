@@ -12,4 +12,22 @@ class SPACEGAME_API AGuardCharacter : public ASpaceGameCharacter
 	
 public:
 	AGuardCharacter();
+
+	bool bLateStart;
+
+	UPROPERTY(Replicated)
+	bool bAIStartFire;
+
+	FTimerHandle AITimerHandle_ShotTimerExpired;
+	FTimerHandle TimerHandle_Delay;
+
+	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaSeconds) override;
+
+	void AIFire();
+	void AIFireTimerExpired();
+	void TimerExpired();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerAIFire();
 };

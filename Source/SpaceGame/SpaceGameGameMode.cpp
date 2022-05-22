@@ -24,8 +24,6 @@ void ASpaceGameGameMode::PostLogin(APlayerController* NewPlayer)
 
 	ASpaceGamePlayerController* PlayerController = Cast<ASpaceGamePlayerController>(NewPlayer);
 	ASpaceGameCharacter* Character = nullptr;
-
-	GEngine->AddOnScreenDebugMessage(-1, 50.f, FColor::Yellow, "Player Logged In");
 	
 	if (PlayerController)
 	{
@@ -231,7 +229,6 @@ void ASpaceGameGameMode::RespawnPlayer(ASpaceGamePlayerController* PlayerControl
 void ASpaceGameGameMode::PossessWithAuth(ASpaceGamePlayerController* PlayerController, APawn* TargetPawn)
 {
 	ASpaceGameCharacter* Character = Cast<ASpaceGameCharacter>(TargetPawn);
-	GEngine->AddOnScreenDebugMessage(-1, 50.f, FColor::Yellow, "Possesed");
 
 	if (Character)
 	{

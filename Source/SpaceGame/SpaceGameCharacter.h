@@ -50,7 +50,7 @@ public:
 		void SetTeamMaterials(int TeamNum);
 
 
-protected:
+public:
 	UPROPERTY(Category = Mesh, VisibleDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 		UStaticMeshComponent* ShipMeshComponent;
 
@@ -122,9 +122,10 @@ protected:
 	UFUNCTION()
 		void OnHealthChanged(UHealthComponent* HealthComp, float Health, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
 
+	uint32 bCanFire : 1;
+
 private:
 	FTimerHandle TimerHandle_ShotTimerExpired;
-	uint32 bCanFire : 1;
 
 
 	void PrintString(FString Msg);
@@ -149,11 +150,6 @@ public:
 
 	void Respawn();
 	void AllowControl(bool bAllow);
-
-	void AIFire(FVector Direction);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerAIFire(FVector Direction);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerAllowControl(bool bAllow);
