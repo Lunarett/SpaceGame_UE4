@@ -34,6 +34,7 @@ protected:
 public:
 	void Reset();
 	int GetTeamNumber();
+	float GetCurrentHealth();
 
 	UFUNCTION(BlueprintCallable)
 		void SetTeam(int TeamNum);

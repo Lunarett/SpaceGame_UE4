@@ -1,6 +1,7 @@
 #include "GuardCharacter.h"
 #include "GuardAiController.h"
 #include "SpaceGameProjectile.h"
+#include "HealthComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/ProjectileMovementComponent.h"
@@ -23,7 +24,7 @@ void AGuardCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	GetWorld()->GetTimerManager().SetTimer(TimerHandle_Delay, this, &AGuardCharacter::TimerExpired, 5);
+	SetTeamMaterials(HealthComponent->GetTeamNumber());
 }
 
 void AGuardCharacter::Tick(float DeltaSeconds)

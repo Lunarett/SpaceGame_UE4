@@ -56,6 +56,11 @@ int UHealthComponent::GetTeamNumber()
 	return TeamNumber;
 }
 
+float UHealthComponent::GetCurrentHealth()
+{
+	return CurrentHealth;
+}
+
 void UHealthComponent::SetTeam(int TeamNum)
 {
 	TeamNumber = TeamNum;

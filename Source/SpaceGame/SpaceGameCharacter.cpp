@@ -349,6 +349,23 @@ void ASpaceGameCharacter::OnHealthChanged(UHealthComponent* HealthComp, float He
 	if (Health <= 0.0f)
 	{
 		OnDeath.Broadcast(this, InstigatedBy, DamageCauser);
+
+		if (IsAI)
+		{
+			Respawn();
+
+			ASpaceGameGameMode* GM = Cast<ASpaceGameGameMode>(GetWorld()->GetAuthGameMode());
+
+			if (GM)
+			{
+				ASpaceGameCharacter* KillerCharacter = Cast<ASpaceGameCharacter>(InstigatedBy->GetCharacter());
+
+				if (KillerCharacter)
+				{
+					GM->AddTeamPoints(KillerCharacter->TeamNumber);
+				}
+			}
+		}
 	}
 }
 

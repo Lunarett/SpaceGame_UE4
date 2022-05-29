@@ -1,6 +1,7 @@
 #include "SpaceGameGameMode.h"
 #include "SpaceGameCharacter.h"
 #include "SpaceGamePlayerState.h"
+#include "GuardCharacter.h"
 #include "SpaceGamePlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
@@ -186,12 +187,25 @@ void ASpaceGameGameMode::OnPlayerDeath(ASpaceGameCharacter* Character, AControll
 		//RespawnPlayer(PlayerController, CharacterPlayerState->GetTeamNumber());
 		CharacterPlayerState->AddDeath();
 	}
+	else
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 10, FColor::Red, "Player controller or character player state is null");
+	}
 
 	//Give point to Killers team
 	if (KillerPlayerState)
 	{
 		KillerPlayerState->AddKill();
 		AddTeamPoints(KillerPlayerState->GetTeamNumber());
+	}
+	else
+	{
+		AGuardCharacter* Guard = Cast<AGuardCharacter>(InstigatedBy->GetCharacter());
+
+		if (Guard)
+		{
+			AddTeamPoints(Guard->GetHealthComponent()->GetTeamNumber());
+		}
 	}
 }
 
